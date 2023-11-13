@@ -42,7 +42,7 @@ void MY_FOC::FOC_lab_OpenTest()
         //反park变换验证
         // if(Voltage_Q<20.0f)
         //     Voltage_Q += 0.0001f;
-        // Voltage_Q = 17.50f;
+        Voltage_Q = 10.50f;
         Voltage_D = 0.0f;
 
         FOC_Cacu_RevPark();

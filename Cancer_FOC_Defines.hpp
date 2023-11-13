@@ -21,8 +21,9 @@
 #define PRINT_PID_Q             13
 #define PRINT_PID_SPEED         14
 #define PRINT_PID_POS           15
+#define PRINT_LOOP_VALUE        16
 
-#define PRINT_TARGET            1
+#define PRINT_TARGET            16
 
 //开环选项
 #define SELF_GENERATION     0

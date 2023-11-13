@@ -48,6 +48,17 @@ uint8_t SVPWM::SVPWM_Position_Judgement()
 	return CodeValue;
 }
 
+void SVPWM::SVPWM_JudgeOverLoad()
+{
+	if(T1+T2+T0*2>Ts)
+	{
+		T1 = T1/(T1+T2+T0*2)*Ts;
+		T2 = T2/(T1+T2+T0*2)*Ts;
+		T0 = T0/(T1+T2+T0*2)*Ts;
+	}
+
+}
+
 void SVPWM::SVPWM_ChangeVdc(float Vdc)
 {
 	this->m = Ts*Sqrt3/Vdc;
@@ -57,10 +68,7 @@ void SVPWM::SVPWM_ChangeVdc(float Vdc)
 
 bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 {
-	if(V_Alpha*V_Alpha+V_Beta*V_Beta > Vdc*Vdc)
-	{
-		return false;
-	}
+
 
 	V_Input_Alpha = V_Alpha;
 	V_Input_Beta  = V_Beta;
@@ -75,7 +83,7 @@ bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 		T1 = m * (Val_alpha - Val_beta);
 		T2 = m * V_Input_Beta;
 		T0 = (Ts - T1 - T2)/2;
-		
+		SVPWM_JudgeOverLoad();
 		duty[0] = (T0+T1+T2)/Ts;
 		duty[1] = (T0+T2)/Ts;
 		duty[2] = T0/Ts;
@@ -85,7 +93,7 @@ bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 		T1 = m * (Val_alpha  + Val_beta);
 		T2 = m * (-Val_alpha + Val_beta);
 		T0 = (Ts - T1 - T2)/2;
-		
+		SVPWM_JudgeOverLoad();
 		duty[0] = (T0+T1)/Ts;
 		duty[1] = (T0+T1+T2)/Ts;
 		duty[2] = T0/Ts;
@@ -95,7 +103,7 @@ bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 		T1 = m *  V_Input_Beta;
 		T2 = m * (-Val_alpha - Val_beta);
 		T0 = (Ts - T1 - T2)/2;
-		
+		SVPWM_JudgeOverLoad();
 		duty[0] = T0/Ts;
 		duty[1] = (T0+T1+T2)/Ts;
 		duty[2] = (T0+T2)/Ts;
@@ -105,7 +113,7 @@ bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 		T1 = - m * (Val_alpha - Val_beta);
 		T2 = - m *  V_Input_Beta;
 		T0 = (Ts - T1 - T2)/2;
-		
+		SVPWM_JudgeOverLoad();
 		duty[0] = T0/Ts;
 		duty[1] = (T0+T1)/Ts;
 		duty[2] = (T0+T1+T2)/Ts;
@@ -115,7 +123,7 @@ bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 		T1 = - m * (Val_alpha  + Val_beta);
 		T2 = - m * (-Val_alpha + Val_beta);
 		T0 = (Ts - T1 - T2)/2;
-		
+		SVPWM_JudgeOverLoad();
 		duty[0] = (T0+T2)/Ts;
 		duty[1] = T0/Ts;
 		duty[2] = (T0+T1+T2)/Ts;
@@ -125,7 +133,7 @@ bool SVPWM::SVPWM_Program(float *duty,float V_Alpha,float V_Beta)
 		T1 = - m *  V_Input_Beta;
 		T2 = - m * (-Val_alpha - Val_beta);
 		T0 = (Ts - T1 - T2)/2;
-		
+		SVPWM_JudgeOverLoad();
 		duty[0] = (T0+T1+T2)/Ts;
 		duty[1] = T0/Ts;
 		duty[2] = (T0+T1)/Ts;

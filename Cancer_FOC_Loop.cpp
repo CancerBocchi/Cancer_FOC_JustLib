@@ -17,10 +17,6 @@ void MY_FOC::FOC_LoopRun()
         case FOC_POS_LOOP:
             FOC_Loop_Position(Pos_REF);
             break;
-        
-        default:
-
-            break;
         }
         
     }
@@ -39,6 +35,8 @@ void MY_FOC::FOC_Loop_Position(float Pos_Ref)
         theta+=6.28f;
     else if (theta_past-theta < -6.0f)
         theta-=6.28f;
+    
+    theta_past = theta;
 
     if(Flag == Loop_PSC)
     {

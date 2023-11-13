@@ -17,6 +17,8 @@ MY_FOC::MY_FOC(FOC_Init_TypeDef Init_Struct):svpwm(Init_Struct.SVPWM_Ts,Init_Str
     this->hhrtim = Init_Struct.hrtim;
 #endif
 
+    this->huart = huart;
+
     raw_Current_C = 0;
     raw_Current_B = 0;
     raw_Current_A = 0;
@@ -39,8 +41,8 @@ MY_FOC::MY_FOC(FOC_Init_TypeDef Init_Struct):svpwm(Init_Struct.SVPWM_Ts,Init_Str
 
 
     Pos_PID_Init(&I_q,0.01f,0.003f,0);
-    I_q.Output_Max = 16.0f;
-    I_q.Output_Min = -16.0f;
+    I_q.Output_Max = 16.0*Sqrt3;
+    I_q.Output_Min = -16.0*Sqrt3;
     I_q.Value_I_Max = 2000.0f;
 
     Pos_PID_Init(&I_d,0.01f,0.003f,0);
@@ -50,16 +52,16 @@ MY_FOC::MY_FOC(FOC_Init_TypeDef Init_Struct):svpwm(Init_Struct.SVPWM_Ts,Init_Str
     I_d.Ref = 0.0f;
 
     Pos_PID_Init(&Speed_Control,100.0f,5.0f,0);
-    Speed_Control.Output_Max = 500.0f;
-    Speed_Control.Output_Min = -500.0f;
-    Speed_Control.Value_I_Max = 2000.0f;
+    Speed_Control.Output_Max = 700.0f;
+    Speed_Control.Output_Min = -700.0f;
+    Speed_Control.Value_I_Max = 200.0f;
 
-    Pos_PID_Init(&Position_Control,1.0f,0.0f,1.0f);
-    Position_Control.Output_Max =  4.50f;
-    Position_Control.Output_Min = -4.50f;
+    Pos_PID_Init(&Position_Control,10.0f,0.0f,10.0f);
+    Position_Control.Output_Max =  4.0f;
+    Position_Control.Output_Min = -4.0f;
     Position_Control.Value_I_Max = 2000.0f;
 
-    FOC_Loop_Select = FOC_POS_LOOP;
+    FOC_Loop_Select = FOC_CURRENT_LOOP;
 }
 
 MY_FOC::~MY_FOC()
@@ -74,16 +76,27 @@ MY_FOC::~MY_FOC()
  */
 void MY_FOC::FOC_Sys_Init()
 {
-    AS5048a_Init();
+    //初始化串口调试
+    FOC_Sys_UART_Init();
+    //初始化编码器
+    FOC_Sys_Encoder_Init();
+    //初始化定时器
     FOC_Sys_TIMER_Init();
+    //打开PWM
     FOC_Sys_PWM_Switch(true);
+    //校准电角度
     FOC_Angle_Calibrate_the_electrical_angle();
+    //关闭PWM 防止干扰ADC校准
     FOC_Sys_PWM_Switch(false);
     HAL_Delay(1);
+    //ADC初始化
     FOC_ADC_Init(); 
 }
 
-
+void MY_FOC::FOC_Sys_Encoder_Init()
+{
+    AS5048a_Init();
+}
 
 
 void MY_FOC::FOC_Sys_ChangeDuty(float* duty)
@@ -154,7 +167,7 @@ void MY_FOC::FOC_Sys_PWM_Switch(bool onoff)
         HAL_TIMEx_PWMN_Stop(this->htim,TIM_CHANNEL_3);
 
     }
-#endif 
+#endif                                                                                     
 
 }
 
@@ -165,30 +178,90 @@ void MY_FOC::FOC_Sys_UART_Init()
 
 void MY_FOC::FOC_Sys_UART_Command()
 {
-    static uint32_t address      = 0;    //存储地址，自增长
-    static bool     Recieve_Flag = false;//判断之前是否接受过数据
-    static char endchar = '\\';
-    //若接受过完整数据则将最终的数据清零
-    if(Recieve_Flag == true)
+
+}
+/**
+ * @brief UART 接口 实时改变期望
+ * 
+ * @param code 
+ */
+void MY_FOC::FOC_Sys_UartDebug(uint8_t code)
+{
+    switch (code)
     {
-        memset(uart_rx_buffer,0,sizeof(uart_rx_buffer));
-        Recieve_Flag = false;
+        case '1':
+            Pos_REF = 0;
+            Block_UART_printf(huart,"Angle Set 0\n");
+            break;
+        case '2':
+            Pos_REF = PI/3;
+            Block_UART_printf(huart,"Angle Set 60\n");
+            break;
+        case '3':
+            Pos_REF = PI*2/3;
+            Block_UART_printf(huart,"Angle Set 120\n");
+            break;
+        case '4':
+            Pos_REF = PI;
+            Block_UART_printf(huart,"Angle Set 180\n");
+            break;
+        case '5':
+            Pos_REF = PI*4/3;
+            Block_UART_printf(huart,"Angle Set 240\n");
+            break;
+        case '6':
+            Pos_REF = PI*5/3;
+            Block_UART_printf(huart,"Angle Set 300\n");
+            break;
     }
-    //判断结束符
-    if(charinput == endchar)
+}
+
+bool MY_FOC::FOC_Sys_ChangeREF(float value, uint8_t target)
+{
+    switch (target)
     {
-        strinput[address] = '\0';
-        Recieve_Flag = true;
-        address = 0;
-        return true;
-    }
-    else
-    {
-        strinput[address] = charinput;
-        address++;
-        length++;//计算长度
+    case 'I':
+        Iq_REF = value;
+        DMA_UART_printf(huart,"CancerFOC:Set I_ref = %.3f\n",value);
+        break;
+    case 'S':
+        Speed_REF = value;
+        DMA_UART_printf(huart,"CancerFOC:Set Speed_ref = %.3f\n",value);
+        break;
+    case 'P':
+        Pos_REF = value;
+        DMA_UART_printf(huart,"CancerFOC:Set Pos_ref = %.3f\n",value);
+        break;  
+
+    default:
+        DMA_UART_printf(huart,"CancerFOC:Target Error\n");
         return false;
+        break;
     }
+    return true;
+}
+
+bool MY_FOC::FOC_Sys_ChangeMode(uint8_t mode)
+{
+    switch (mode)
+    {
+    case 'I':
+        FOC_Loop_Select = FOC_CURRENT_LOOP;
+        DMA_UART_printf(huart,"CancerFOC:Current Loop Selected\n");
+        break;
+    case 'S':
+        FOC_Loop_Select = FOC_SPEED_LOOP;
+        DMA_UART_printf(huart,"CancerFOC:Speed Loop Selected\n");
+        break;
+    case 'P':
+        FOC_Loop_Select = FOC_POS_LOOP;
+        DMA_UART_printf(huart,"CancerFOC:Pos Loop Selected\n");
+        break;
+    
+    default:
+        break;
+    }
+    return false;
 }
 
 void MY_FOC::FOC_Sys_Print_Vari()
@@ -221,11 +294,13 @@ void MY_FOC::FOC_Sys_Print_Vari()
     #elif PRINT_TARGET == PRINT_ELECANGLE
         SEGGER_RTT_printf(0,"%d\n", (int)(theta_Park*1000));
     #elif PRINT_TARGET == PRINT_PID_Q
-        SEGGER_RTT_printf(0,"%d,%d,%d\n", (int)Voltage_Q,(int)(I_q.Error*1000),(int)(I_q.Value_I*1000));
+        SEGGER_RTT_printf(0,"%d,%d,%d\n", (int)(Current_Park_D*100),(int)(Current_Park_Q*100),(int)(I_q.Value_I*100));
     #elif PRINT_TARGET == PRINT_PID_SPEED
         SEGGER_RTT_printf(0,"%d,%d,%d\n", (int)(I_q.Ref*1000),(int)(Speed_Control.Error*1000),(int)(speed*100));
     #elif PRINT_TARGET == PRINT_PID_POS
         SEGGER_RTT_printf(0,"%d,%d,%d\n", (int)(Speed_Control.Ref*1000),(int)(Position_Control.Error*1000),(int)(theta*100));
+    #elif PRINT_TARGET == PRINT_LOOP_VALUE
+        SEGGER_RTT_printf(0,"%d,%d,%d\n", (int)(theta*100),(int)(speed*100),(int)(Current_Park_Q*100));
 
     #endif
 

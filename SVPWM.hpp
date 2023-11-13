@@ -46,6 +46,7 @@ private:
     float Vdc;
 
     uint8_t SVPWM_Position_Judgement();
+    void SVPWM_JudgeOverLoad();
 public:
     SVPWM(float Ts,float Vdc);
     ~SVPWM();

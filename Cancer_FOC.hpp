@@ -143,8 +143,9 @@ private:
     void FOC_Sys_ChangeDuty(float* duty);
     void FOC_Sys_TIMER_Init();
     void FOC_Sys_PWM_Switch(bool onoff);
+    void FOC_Sys_Encoder_Init();
     void FOC_Sys_UART_Init();
-    void FOC_Sys_UART_Command();
+    void FOC_Sys_Print_Vari();//系统打印调试函数
 
 //loop函数
     void FOC_Loop_Speed(float Speed_Ref);
@@ -157,16 +158,22 @@ public:
     MY_FOC(FOC_Init_TypeDef Init_Struct);
     ~MY_FOC();
 
-    void FOC_Sys_Init();//系统初始化 
-    void FOC_Sys_Print_Vari();//系统打印调试函数
+    void FOC_Sys_UART_Command();
+    void FOC_Sys_UartDebug(uint8_t code);
 
-    void FOC_ADC_Program();
+    void FOC_Sys_Init();//系统初始化 
+    void FOC_ADC_Program();//对于ADC采样的值处理的函数
+
+    //环路运行程序
+    void FOC_LoopRun();
+
+    //改变环路模式以及期望的接口
+    bool FOC_Sys_ChangeREF(float value,uint8_t target);
+    bool FOC_Sys_ChangeMode(uint8_t mode);
+
     //开环测试
     void FOC_lab_OpenTest();
     void FOC_lab_CurrentLoop();
-
-    void FOC_LoopRun();
-
 };
 
 #endif
